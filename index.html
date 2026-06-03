@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>神州血脈：家族遷徙史詩</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Noto Serif TC', serif;
+            background-color: #1a1a1a;
+            color: #2c2826;
+            overflow: hidden;
+            user-select: none;
+        }
+        .ink-text { color: #1a1a1a; text-shadow: 1px 1px 2px rgba(0,0,0,0.1); }
+        .log-container::-webkit-scrollbar { width: 4px; }
+        .log-container::-webkit-scrollbar-thumb { background-color: #6b705c; border-radius: 4px; }
+        
+        /* 卡牌樣式 */
+        .card {
+            transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+            transform-origin: bottom center;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .card:hover {
+            transform: translateY(-15px) scale(1.05);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            z-index: 10;
+        }
+        .card:active { transform: translateY(-5px) scale(0.98); }
+        
+        /* 舞台背景動畫 */
+        .stage-bg { transition: background-image 1s ease-in-out; }
+        
+        /* 角色浮動動畫 */
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-5px); }
+            100% { transform: translateY(0px); }
+        }
+        .character-sprite { animation: float 4s ease-in-out infinite; }
+        
+        /* 彈窗出現動畫 */
+        .modal-enter { animation: modalFadeIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        @keyframes modalFadeIn {
+            from { opacity: 0; transform: scale(0.9) translateY(20px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+    </style>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'ink': '#2c2826', 'cinnabar': '#c03a2b', 'bamboo': '#6b705c',
+                        'paper': '#f4ece4', 'paper-dark': '#e3d5c8', 'gold': '#d4af37'
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="h-screen flex flex-col bg-gray-900 selection:bg-bamboo selection:text-white">
+
+    <header class="bg-ink text-paper p-3 shadow-lg z-20 flex justify-between items-center border-b-2 border-cinnabar relative">
+        <div class="flex items-center gap-4">
+            <h1 class="text-2xl font-black tracking-widest text-cinnabar border-r border-gray-600 pr-4" style="text-shadow: 1px 1px 0 #fff;">神州血脈</h1>
+            <div class="text-sm font-bold tracking-wide">
+                <span id="era-display" class="text-bamboo text-lg">西晉</span> 
+                <span class="text-gray-400 mx-2">|</span>
+                <span id="year-display" class="text-white">西元 290 年</span> 
+                <span class="text-gray-400 mx-2">|</span>
+                <span id="phase-display" class="text-gold">中原歲月</span>
+            </div>
+        <div class="flex gap-4 text-sm font-bold items-center">
+            <!-- 音效開關按鈕 -->
+            <button id="bgm-toggle" onclick="toggleBGM()" class="text-gray-400 hover:text-white transition-colors px-2" title="開啟/關閉音樂">
+                <i class="fas fa-volume-mute text-lg"></i>
+            </button>
+            <div class="flex flex-col items-center bg-gray-800 px-3 py-1 rounded border border-gray-700 w-24">
+                <div class="text-gray-400 text-xs"><i class="fas fa-users text-blue-400"></i> 人口 (血脈)</div>
+                <span id="stat-pop" class="text-white text-lg">120</span>
+            </div>
+            <div class="flex flex-col items-center bg-gray-800 px-3 py-1 rounded border border-gray-700 w-24">
+                <div class="text-gray-400 text-xs"><i class="fas fa-wheat-awn text-yellow-500"></i> 糧財 (資源)</div>
+                <span id="stat-food" class="text-white text-lg">150</span>
+            </div>
+            <div class="flex flex-col items-center bg-gray-800 px-3 py-1 rounded border border-gray-700 w-24">
+                <div class="text-gray-400 text-xs"><i class="fas fa-gem text-purple-400"></i> 聲望 (階級)</div>
+                <span id="stat-pres" class="text-white text-lg">40</span>
+            </div>
+            <div class="flex flex-col items-center bg-gray-800 px-3 py-1 rounded border border-gray-700 w-24">
+                <div class="text-gray-400 text-xs"><i class="fas fa-seedling text-green-400"></i> 適應力</div>
+                <span id="stat-adapt" class="text-white text-lg">0%</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 flex overflow-hidden relative">
+        
+        <!-- 左側面板：族長與日誌 -->
+        <aside class="w-72 bg-paper-dark border-r border-gray-400 flex flex-col shadow-2xl z-10">
+            <!-- 族長資訊 -->
+            <div class="p-4 bg-[url('data:image/svg+xml;utf8,<svg width=\"100\" height=\"100\" xmlns=\"http://www.w3.org/2000/svg\"><filter id=\"noise\"><feTurbulence type=\"fractalNoise\" baseFrequency=\"0.8\" numOctaves=\"4\" stitchTiles=\"stitch\"/></filter><rect width=\"100\" height=\"100\" filter=\"url(%23noise)\" opacity=\"0.1\"/></svg>')] border-b border-gray-400">
+                <div class="text-xs font-bold text-gray-500 mb-2 tracking-widest">當代族長</div>
+                <div class="flex items-center gap-3">
+                    <div id="leader-avatar-mini" class="w-12 h-12 rounded-full bg-gray-300 border-2 border-ink overflow-hidden flex-shrink-0">
+                        <!-- Mini SVG injected here -->
+                    </div>
+                    <div>
+                        <div class="text-lg font-black ink-text leading-tight" id="leader-name">王導</div>
+                        <div class="text-xs text-gray-600 mb-1">年齡: <span id="leader-age">35</span></div>
+                        <div id="leader-traits" class="flex flex-wrap gap-1"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 歷史日誌 -->
+            <div class="flex-1 flex flex-col overflow-hidden p-4 bg-paper">
+                <h3 class="text-sm font-bold text-ink mb-3 border-b-2 border-gray-300 pb-1 flex justify-between items-center">
+                    <span><i class="fas fa-scroll mr-1"></i> 家族紀事</span>
+                </h3>
+                <div id="game-log" class="flex-1 overflow-y-auto log-container space-y-3 pr-2 text-sm">
+                    <!-- Logs go here -->
+                </div>
+            </div>
+        </aside>
+
+        <section class="flex-1 flex flex-col relative bg-gray-900">
+            
+            <!-- 視覺舞台 (動態背景與人物) -->
+            <div id="visual-stage" class="flex-1 relative stage-bg bg-cover bg-center overflow-hidden flex items-end justify-center pb-10" 
+                 style="background-image: linear-gradient(to bottom, rgba(0,0,0,0.2), rgba(0,0,0,0.8)), url('地圖.png');">
+                
+                <!-- 族長立繪 (JS動態生成) -->
+                <div id="leader-sprite" class="character-sprite w-64 h-80 relative z-10 transition-all duration-500">
+                    <!-- SVG goes here -->
+                </div>
+
+                <!-- 旁白/提示氣泡 -->
+                <div id="speech-bubble" class="absolute top-1/4 left-1/2 transform -translate-x-1/2 bg-white bg-opacity-90 text-ink p-4 rounded-xl shadow-2xl max-w-md text-center border-2 border-gray-300 transition-opacity duration-300 opacity-0 z-20">
+                    <p id="speech-text" class="text-lg font-bold">天下承平，正是家族發展的好時機。</p>
+                </div>
+            </div>
+
+            <!-- 卡牌手牌區 -->
+            <div class="h-64 bg-[url('data:image/svg+xml;utf8,<svg width=\"100\" height=\"100\" xmlns=\"http://www.w3.org/2000/svg\"><rect width=\"100\" height=\"100\" fill=\"%232c2826\"/></svg>')] border-t-4 border-bamboo p-4 relative shadow-[0_-10px_20px_rgba(0,0,0,0.5)] z-20 flex flex-col">
+                <div class="text-gray-300 text-sm font-bold mb-2 flex justify-between px-4">
+                    <span><i class="fas fa-hand-paper mr-1"></i> 請選擇一項決策 (打出卡牌推進 1 年)</span>
+                    <span id="deck-count" class="text-gray-400">牌庫剩餘: --</span>
+                </div>
+                
+                <!-- 手牌容器 -->
+                <div id="hand-container" class="flex-1 flex justify-center items-end gap-4 pb-2">
+                    <!-- Cards injected by JS -->
+                </div>
+            </div>
+
+            <!-- 覆蓋層 -->
+            <div id="modal-overlay" class="absolute inset-0 bg-black bg-opacity-80 z-40 hidden flex justify-center items-center backdrop-blur-sm">
+                
+                <!-- 事件卡片 Modal -->
+                <div id="event-modal" class="hidden bg-paper w-full max-w-xl rounded-lg shadow-2xl overflow-hidden border-2 border-gray-400">
+                    <div id="event-header" class="bg-ink text-white p-4 flex items-center gap-3">
+                        <i id="event-icon" class="fas fa-exclamation-triangle text-2xl text-yellow-500"></i>
+                        <h2 id="event-title" class="text-2xl font-black tracking-wide">突發事件</h2>
+                    </div>
+                    <div class="p-6">
+                        <p id="event-desc" class="text-lg leading-relaxed text-gray-800 mb-6 indent-8">事件描述</p>
+                        <div id="event-options" class="space-y-3">
+                            <!-- Buttons injected here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 世代交替 Modal -->
+                <div id="heir-modal" class="hidden bg-paper w-full max-w-2xl rounded-lg shadow-2xl overflow-hidden border-4 border-cinnabar">
+                    <div class="bg-cinnabar text-white p-4 text-center">
+                        <h2 class="text-2xl font-black">族長辭世，選擇繼承人</h2>
+                    </div>
+                    <div class="p-6">
+                        <p class="text-gray-700 mb-6 text-center">家族不可一日無主，請從子弟中挑選一位帶領宗族。</p>
+                        <div id="heir-options" class="grid grid-cols-2 gap-4">
+                            <!-- Heirs injected here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 遊戲結束 Modal -->
+                <div id="gameover-modal" class="hidden bg-black text-white w-full max-w-2xl rounded-lg shadow-2xl overflow-hidden border-4 border-red-800 p-10 text-center">
+                    <h1 class="text-6xl font-black text-cinnabar mb-4" style="text-shadow: 2px 2px 0 #000;">歷史的塵埃</h1>
+                    <h2 id="gameover-title" class="text-2xl mb-6 text-gray-400">滅門之禍</h2>
+                    <p id="gameover-desc" class="text-lg text-gray-300 mb-10 leading-relaxed">描述</p>
+                    <button onclick="location.reload()" class="bg-cinnabar hover:bg-red-700 text-white font-bold py-3 px-10 rounded text-xl transition-colors">
+                        重鑄血脈 (重新開始)
+                    </button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- 新增背景音樂音訊標籤 -->
+    <audio id="bgm-player" src="背景音樂.mp3" loop preload="auto"></audio>
+
+    <script>
+        // --- 音效系統 (Web Audio API 產生合成音效) ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let isBgmPlaying = false;
+        let userInteracted = false;
+        
+        function toggleBGM() {
+            const bgm = document.getElementById('bgm-player');
+            bgm.volume = 0.4; // 預設背景音樂音量
+            const btn = document.getElementById('bgm-toggle');
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            
+            if (isBgmPlaying) {
+                bgm.pause();
+                btn.innerHTML = '<i class="fas fa-volume-mute text-lg"></i>';
+                btn.classList.replace('text-white', 'text-gray-400');
+            } else {
+                bgm.play().catch(e => console.log("等待使用者互動後播放"));
+                btn.innerHTML = '<i class="fas fa-volume-up text-lg"></i>';
+                btn.classList.replace('text-gray-400', 'text-white');
+            }
+            isBgmPlaying = !isBgmPlaying;
+        }
+
+        function playSFX(type) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            const now = audioCtx.currentTime;
+            
+            if (type === 'card') {
+                // 打牌音效：清脆的短音
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(800, now);
+                osc.frequency.exponentialRampToValueAtTime(300, now + 0.1);
+                gainNode.gain.setValueAtTime(0.15, now);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                osc.start(now);
+                osc.stop(now + 0.1);
+            } else if (type === 'event') {
+                // 事件音效：低沉的警示音
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(300, now);
+                osc.frequency.exponentialRampToValueAtTime(150, now + 0.4);
+                gainNode.gain.setValueAtTime(0.2, now);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                osc.start(now);
+                osc.stop(now + 0.4);
+            } else if (type === 'gameover') {
+                // 結束音效：沉重的長音
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, now);
+                osc.frequency.exponentialRampToValueAtTime(50, now + 1.5);
+                gainNode.gain.setValueAtTime(0.2, now);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, now + 1.5);
+                osc.start(now);
+                osc.stop(now + 1.5);
+            }
+        }
+        
+        function ensureAudioStarted() {
+            if (!userInteracted) {
+                userInteracted = true;
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                // 預設第一次點擊開啟音樂
+                toggleBGM();
+            }
+        }
+
+        // --- 資料結構 ---
+        let gameState = {
+            year: 290,
+            era: "西晉",
+            phase: "PEACE", // PEACE, CRISIS, MIGRATION, SETTLE
+            location: "中原",
+            isGameOver: false,
+            isEventBlocking: false // 鎖定操作
+        };
+
+        let familyStats = { pop: 120, food: 150, pres: 40, adapt: 0 };
+        
+        let currentLeader = { name: "王導", age: 35, trait: "bookworm" };
+
+        const traitsDB = {
+            "bookworm": { name: "飽讀詩書", desc: "每次打出文化牌，聲望額外+2", color: "bg-blue-600", icon: "fa-book" },
+            "farmer": { name: "深諳農事", desc: "每次打出農業牌，糧食額外+5", color: "bg-green-600", icon: "fa-seedling" },
+            "diplomat": { name: "交際手腕", desc: "容易觸發正面社交事件", color: "bg-purple-600", icon: "fa-handshake" },
+            "warrior": { name: "尚武精神", desc: "戰鬥/治安事件損失減半", color: "bg-red-600", icon: "fa-sword" }
+        };
+
+        // --- 牌庫系統 (Cards) ---
+        let hand = [];
+        const maxHandSize = 4;
+        
+        const allCards = [
+            // 太平時期卡牌
+            { id: 'farm', title: '開墾荒地', type: 'agri', cost: {pop: 0}, effect: {food: 20}, desc: '指派族人開墾良田，增加糧食儲備。', icon: 'fa-wheat-awn', phases: ['PEACE', 'SETTLE'] },
+            { id: 'study', title: '督促子弟', type: 'cult', cost: {food: 10}, effect: {pres: 6}, desc: '購買經書，督促族中子弟讀書，提升家族聲望。', icon: 'fa-book-reader', phases: ['PEACE', 'SETTLE'] },
+            { id: 'recruit', title: '收容流民', type: 'soc', cost: {food: 25}, effect: {pop: 15, pres: 2}, desc: '開倉賑濟，將流民編入宗族部曲。', icon: 'fa-hands-holding-child', phases: ['PEACE', 'CRISIS', 'SETTLE'] },
+            { id: 'business', title: '經營商賈', type: 'econ', cost: {pres: -2}, effect: {food: 30}, desc: '放下身段經商，雖損清名但獲利豐厚。', icon: 'fa-coins', phases: ['PEACE', 'SETTLE'] },
+            
+            // 危機與遷徙時期卡牌
+            { id: 'defend', title: '加固塢堡', type: 'mil', cost: {food: 15}, effect: {pres: 2}, desc: '築牆自守，防範賊寇。(戰亂期有用)', icon: 'fa-shield-halved', phases: ['CRISIS'] },
+            { id: 'sell', title: '變賣家產', type: 'econ', cost: {pres: -5}, effect: {food: 50}, desc: '為逃難作準備，賤賣祖產。', icon: 'fa-sack-dollar', phases: ['CRISIS', 'MIGRATION'] },
+            { id: 'march', title: '急行軍', type: 'move', cost: {food: 20, pop: -5}, effect: {}, desc: '日夜趕路，消耗糧食並有體弱者掉隊。', icon: 'fa-person-running', phases: ['MIGRATION'] },
+            { id: 'scout', title: '探查路線', type: 'move', cost: {food: 5}, effect: {adapt: 5}, desc: '了解南方水土，微幅提升適應力。', icon: 'fa-map', phases: ['MIGRATION'] },
+            
+            // 定居卡牌
+            { id: 'network', title: '拜會僑姓', type: 'soc', cost: {food: 15}, effect: {pres: 8}, desc: '與同樣南渡的北方世族交際。', icon: 'fa-handshake', phases: ['SETTLE'] },
+            { id: 'learn_rice', title: '學習水稻', type: 'agri', cost: {food: 10}, effect: {adapt: 15}, desc: '向當地人學習水田耕作技術。', icon: 'fa-water', phases: ['SETTLE'] }
+        ];
+
+        // --- 事件題庫 (Events) ---
+        // 歷史強制事件
+        const historyEvents = [
+            { year: 291, title: "八王之亂起", desc: "司馬氏諸王為爭權奪利，在中原大動干戈。洛陽一帶盜賊四起，糧食價格飛漲。家族的安寧被打破了。", 
+              icon: "fa-fire", bg: "https://images.unsplash.com/photo-1579227114347-15d08fc37cae?q=80&w=2000&auto=format&fit=crop", 
+              options: [{ text: "緊閉大門，減少外出", effect: {food: -20, pres: -2}, nextPhase: "CRISIS" }] },
+            
+            { year: 304, title: "五胡亂華，神州陸沉", desc: "匈奴大軍攻破防線，長驅直入。中原大地生靈塗炭。這是一股不可抗拒的「推力」，家族面臨生死存亡的抉擇！", 
+              icon: "fa-skull-crossbones",
+              options: [
+                  { text: "死守祖宗基業 (極度危險)", effect: {pop: -60, food: -40}, log: "慘遭外族洗劫，死傷過半。" },
+                  { text: "舉族南遷避禍 (進入遷徙)", effect: {food: 20, pres: -10}, nextPhase: "MIGRATION", location: "流亡途中", log: "拋下祖產，倉皇南逃。" }
+              ] },
+            
+            { year: 311, title: "永嘉之禍，渡江決策", desc: "洛陽徹底陷落，晉朝皇室南逃。你們來到了長江邊，面臨渡江路線的選擇。",
+              icon: "fa-water", reqPhase: "MIGRATION",
+              options: [
+                  { text: "走陸路入蜀 (山路崎嶇)", effect: {pop: -20, food: -10, adapt: 10}, log: "走陸路遭遇山賊，抵達荊楚。" },
+                  { text: "花重金雇船渡江 (水路)", effect: {pop: -5, food: -60, adapt: 5}, log: "花費大量糧財，安全渡過長江。" }
+              ] },
+
+            { year: 317, title: "東晉建立，僑置郡縣", desc: "司馬睿在建康（今南京）稱帝，史稱東晉。朝廷設立了「僑州郡縣」來安撫北方流民。江南的「拉力」開始顯現。",
+              icon: "fa-torii-gate", reqPhase: "MIGRATION", bg: "https://images.unsplash.com/photo-1544413660-299165566b1d?q=80&w=2000&auto=format&fit=crop",
+              options: [
+                  { text: "依附朝廷，定居建康周邊", effect: {pres: 20}, nextPhase: "SETTLE", location: "江南", log: "獲得朝廷庇護，在江南落腳。" },
+                  { text: "深入鄉野，自行開墾", effect: {food: 30, adapt: 20}, nextPhase: "SETTLE", location: "江南", log: "避開政治中心，向荒野發展。" }
+              ] }
+        ];
+
+        // 隨機突發事件
+        const randomEvents = [
+            { title: "蝗災肆虐", desc: "鋪天蓋地的蝗蟲飛過，田地顆粒無收。", effect: {food: -30}, weight: 1, phases: ['PEACE', 'SETTLE'] },
+            { title: "發現古籍", desc: "族中子弟在舊屋夾層發現了失傳的兵法古籍。", effect: {pres: 15}, weight: 1, phases: ['PEACE', 'SETTLE'] },
+            { title: "流寇襲擊", desc: "一股流寇襲擊了家族營地。", effect: {pop: -15, food: -10}, weight: 2, phases: ['CRISIS', 'MIGRATION'] },
+            { title: "南方瘴癘", desc: "水土不服，族人染上惡疾，上吐下瀉。", effect: {pop: -25}, weight: 2, phases: ['MIGRATION', 'SETTLE'], condition: () => familyStats.adapt < 50 },
+            { title: "地方土豪結交", desc: "當地豪強看重你們的家世，送來糧食結交。", effect: {food: 40, pres: 5}, weight: 1, phases: ['SETTLE'] }
+        ];
+
+        // --- 核心函數：UI 與 視覺 ---
+
+        // 產生角色圖片 (改為讀取本地 族長.png)
+        function generateAvatarSVG(trait, isMini = false) {
+            // 若為小頭像(左上角或繼承人選單)，使用 cover 以填滿圓形；若為舞台立繪，使用 contain 保持原圖比例
+            const objectFit = isMini ? 'object-cover' : 'object-contain';
+            return `<img src="族長.png" class="w-full h-full ${objectFit} drop-shadow-xl" alt="族長">`;
+        }
+
+        function updateUI() {
+            document.getElementById('year-display').textContent = `西元 ${gameState.year} 年`;
+            document.getElementById('era-display').textContent = gameState.era;
+            
+            const phaseMap = { 'PEACE': '中原歲月', 'CRISIS': '戰火紛飛', 'MIGRATION': '顛沛流離', 'SETTLE': '江南僑居' };
+            document.getElementById('phase-display').textContent = phaseMap[gameState.phase];
+
+            // 數值更新與特效
+            const stats = ['pop', 'food', 'pres', 'adapt'];
+            stats.forEach(s => {
+                const el = document.getElementById(`stat-${s}`);
+                let val = familyStats[s];
+                if (s === 'adapt') val += '%';
+                el.textContent = val;
+                
+                // 警告顏色
+                if (s === 'pop' || s === 'food') {
+                    if (familyStats[s] < 30) {
+                        el.classList.add('text-red-500', 'animate-pulse');
+                        el.classList.remove('text-white');
+                    } else {
+                        el.classList.remove('text-red-500', 'animate-pulse');
+                        el.classList.add('text-white');
+                    }
+                }
+            });
+
+            // 族長 UI
+            document.getElementById('leader-name').textContent = currentLeader.name;
+            document.getElementById('leader-age').textContent = currentLeader.age;
+            
+            const t = traitsDB[currentLeader.trait];
+            document.getElementById('leader-traits').innerHTML = `<span class="${t.color} text-white px-2 py-1 rounded text-xs"><i class="fas ${t.icon} mr-1"></i>${t.name}</span>`;
+            
+            const svgStr = generateAvatarSVG(currentLeader.trait);
+            document.getElementById('leader-avatar-mini').innerHTML = svgStr;
+            document.getElementById('leader-sprite').innerHTML = svgStr;
+        }
+
+        function addLog(msg, type = 'normal') {
+            const logBox = document.getElementById('game-log');
+            const entry = document.createElement('div');
+            let style = "bg-white border-gray-300 text-gray-700";
+            if (type === 'bad') style = "bg-red-50 border-cinnabar text-cinnabar";
+            if (type === 'good') style = "bg-green-50 border-green-500 text-green-700";
+            if (type === 'event') style = "bg-yellow-50 border-yellow-500 text-yellow-800 font-bold";
+
+            entry.className = `p-2 rounded border-l-4 text-xs ${style} modal-enter`;
+            entry.innerHTML = `<span class="font-bold mr-1">[${gameState.year}]</span> ${msg}`;
+            logBox.prepend(entry);
+        }
+
+        function showSpeech(text) {
+            const bubble = document.getElementById('speech-bubble');
+            document.getElementById('speech-text').textContent = text;
+            bubble.classList.remove('opacity-0');
+            setTimeout(() => bubble.classList.add('opacity-0'), 3000);
+        }
+
+        function drawHand() {
+            const container = document.getElementById('hand-container');
+            container.innerHTML = '';
+            
+            // 過濾符合當前 Phase 的卡牌
+            const availableCards = allCards.filter(c => c.phases.includes(gameState.phase));
+            
+            for (let i = 0; i < maxHandSize; i++) {
+                if (availableCards.length === 0) break;
+                // 隨機抽牌
+                const cardDef = availableCards[Math.floor(Math.random() * availableCards.length)];
+                
+                const cardEl = document.createElement('div');
+                cardEl.className = "card bg-paper w-36 h-48 rounded-lg border-2 border-gray-400 p-2 flex flex-col cursor-pointer relative group";
+                
+                // 檢查是否付得起 cost
+                let canAfford = true;
+                let costHtml = '';
+                if (cardDef.cost.food) {
+                    costHtml += `<span class="${familyStats.food >= cardDef.cost.food ? 'text-yellow-600' : 'text-red-600'}"><i class="fas fa-wheat-awn"></i> -${cardDef.cost.food}</span> `;
+                    if(familyStats.food < cardDef.cost.food) canAfford = false;
+                }
+                
+                if (!canAfford) {
+                    cardEl.classList.add('opacity-50', 'grayscale', 'cursor-not-allowed');
+                } else {
+                    cardEl.onclick = () => playCard(cardDef);
+                }
+
+                cardEl.innerHTML = `
+                    <div class="text-xs font-bold border-b border-gray-300 pb-1 mb-1 flex justify-between items-center text-ink">
+                        <span>${cardDef.title}</span>
+                    </div>
+                    <div class="flex-1 flex justify-center items-center text-3xl text-bamboo opacity-80 group-hover:opacity-100 transition-opacity">
+                        <i class="fas ${cardDef.icon}"></i>
+                    </div>
+                    <div class="text-[10px] text-gray-600 mb-1 leading-tight">${cardDef.desc}</div>
+                    <div class="bg-gray-200 rounded px-1 py-0.5 text-[10px] font-bold text-center mt-auto">
+                        耗費: ${costHtml || '無'}
+                    </div>
+                `;
+                container.appendChild(cardEl);
+            }
+        }
+
+        function playCard(card) {
+            if (gameState.isEventBlocking || gameState.isGameOver) return;
+            
+            ensureAudioStarted(); // 確保使用者互動後啟動音效
+            playSFX('card');      // 播放打牌音效
+            
+            // 扣除成本
+            if (card.cost.food) familyStats.food -= card.cost.food;
+            if (card.cost.pop) familyStats.pop -= card.cost.pop;
+            if (card.cost.pres) familyStats.pres -= card.cost.pres;
+
+            // 計算效益 (包含族長特質加成)
+            let actualEffect = { ...card.effect };
+            let bonusMsg = "";
+            
+            if (currentLeader.trait === 'bookworm' && card.type === 'cult') {
+                actualEffect.pres = (actualEffect.pres || 0) + 2;
+                bonusMsg = "(特質加成:聲望+2)";
+            }
+            if (currentLeader.trait === 'farmer' && card.type === 'agri') {
+                actualEffect.food = (actualEffect.food || 0) + 5;
+                bonusMsg = "(特質加成:糧財+5)";
+            }
+
+            applyStats(actualEffect);
+            addLog(`打出【${card.title}】。${bonusMsg}`, 'good');
+            showSpeech(`執行：${card.title}`);
+            
+            // 推進遊戲迴圈
+            endTurnSequence();
+        }
+
+        function applyStats(effects) {
+            if (!effects) return;
+            if (effects.pop) familyStats.pop += effects.pop;
+            if (effects.food) familyStats.food += effects.food;
+            if (effects.pres) familyStats.pres += effects.pres;
+            if (effects.adapt) {
+                familyStats.adapt += effects.adapt;
+                if (familyStats.adapt > 100) familyStats.adapt = 100;
+            }
+            if(familyStats.pres < 0) familyStats.pres = 0;
+            updateUI();
+        }
+
+        function endTurnSequence() {
+            gameState.isEventBlocking = true;
+            document.getElementById('hand-container').innerHTML = ''; // 清空手牌防止連點
+
+            // 1. 基礎消耗 (人口越多，吃飯越多。遷徙時消耗加倍)
+            let consumeRate = gameState.phase === 'MIGRATION' ? 0.15 : 0.08;
+            // 適應力可降低南方消耗
+            if(gameState.phase === 'SETTLE') consumeRate = Math.max(0.05, 0.1 - (familyStats.adapt/1000));
+            
+            let foodCost = Math.ceil(familyStats.pop * consumeRate);
+            familyStats.food -= foodCost;
+            
+            updateUI();
+
+            // 2. 檢查死亡條件
+            if (checkGameOver()) return;
+
+            // 3. 時間推進
+            gameState.year++;
+            currentLeader.age++;
+            if (gameState.year === 317) gameState.era = "東晉";
+
+            // 4. 檢查歷史強制事件
+            const hEvent = historyEvents.find(e => e.year === gameState.year && (!e.reqPhase || e.reqPhase === gameState.phase));
+            if (hEvent) {
+                showEventModal(hEvent, true);
+                return; // 等待玩家在 modal 選擇後才繼續
+            }
+
+            // 5. 檢查隨機事件 (25%機率)
+            if (Math.random() < 0.25) {
+                const validEvents = randomEvents.filter(e => e.phases.includes(gameState.phase) && (!e.condition || e.condition()));
+                if (validEvents.length > 0) {
+                    const rEvent = validEvents[Math.floor(Math.random() * validEvents.length)];
+                    showEventModal(rEvent, false);
+                    return;
+                }
+            }
+
+            // 6. 檢查壽命 (世代交替)
+            if (currentLeader.age > 50 && Math.random() < 0.15 || currentLeader.age > 65) {
+                showHeirModal();
+                return;
+            }
+
+            // 若無事件，進入下一回合
+            prepareNextTurn();
+        }
+
+        function prepareNextTurn() {
+            gameState.isEventBlocking = false;
+            updateUI();
+            drawHand();
+            
+            // 更新背景
+            const stage = document.getElementById('visual-stage');
+            if (gameState.phase === 'PEACE') stage.style.backgroundImage = "linear-gradient(to bottom, rgba(0,0,0,0.2), rgba(0,0,0,0.8)), url('地圖.png')";
+            if (gameState.phase === 'CRISIS') stage.style.backgroundImage = "linear-gradient(to bottom, rgba(200,0,0,0.3), rgba(0,0,0,0.8)), url('地圖.png')";
+            if (gameState.phase === 'MIGRATION') stage.style.backgroundImage = "linear-gradient(to bottom, rgba(0,0,0,0.2), rgba(0,0,0,0.8)), url('地圖.png')";
+            if (gameState.phase === 'SETTLE') stage.style.backgroundImage = "linear-gradient(to bottom, rgba(0,100,0,0.2), rgba(0,0,0,0.8)), url('地圖.png')";
+        }
+
+        // --- UI 彈窗控制 ---
+        function showEventModal(eventData, isHistorical) {
+            playSFX('event'); // 播放事件觸發音效
+            const overlay = document.getElementById('modal-overlay');
+            const modal = document.getElementById('event-modal');
+            const optsContainer = document.getElementById('event-options');
+            
+            document.getElementById('event-title').textContent = eventData.title;
+            document.getElementById('event-desc').textContent = eventData.desc;
+            
+            const header = document.getElementById('event-header');
+            if (isHistorical) {
+                header.className = "bg-cinnabar text-white p-4 flex items-center gap-3";
+            } else {
+                header.className = "bg-ink text-white p-4 flex items-center gap-3";
+            }
+
+            optsContainer.innerHTML = '';
+
+            if (eventData.options) {
+                // 有選項的事件
+                eventData.options.forEach(opt => {
+                    const btn = document.createElement('button');
+                    btn.className = "w-full bg-gray-100 hover:bg-gray-200 text-ink font-bold py-3 px-4 rounded border border-gray-300 text-left transition-colors";
+                    btn.textContent = opt.text;
+                    btn.onclick = () => {
+                        applyStats(opt.effect);
+                        if (opt.log) addLog(opt.log, 'event');
+                        if (opt.nextPhase) gameState.phase = opt.nextPhase;
+                        if (opt.location) gameState.location = opt.location;
+                        
+                        closeModal();
+                        // 處理完歷史事件後，檢查是否需世代交替
+                        if (currentLeader.age > 65) showHeirModal();
+                        else prepareNextTurn();
+                    };
+                    optsContainer.appendChild(btn);
+                });
+            } else {
+                // 單一結果的突發事件
+                const btn = document.createElement('button');
+                btn.className = "w-full bg-bamboo hover:bg-green-700 text-white font-bold py-3 px-4 rounded transition-colors";
+                btn.textContent = "確認";
+                btn.onclick = () => {
+                    // 特殊處理：如果有尚武特質，戰鬥事件減免
+                    let finalEffect = {...eventData.effect};
+                    if (currentLeader.trait === 'warrior' && eventData.title.includes('流寇')) {
+                        finalEffect.pop = Math.floor(finalEffect.pop / 2);
+                        addLog(`${eventData.title}！幸賴族長尚武，擊退賊人，減少損失。`, 'event');
+                    } else {
+                        addLog(eventData.title + "：" + eventData.desc, 'event');
+                    }
+                    applyStats(finalEffect);
+                    
+                    closeModal();
+                    if (currentLeader.age > 65) showHeirModal();
+                    else prepareNextTurn();
+                };
+                optsContainer.appendChild(btn);
+            }
+
+            overlay.classList.remove('hidden');
+            modal.classList.remove('hidden');
+        }
+
+        function showHeirModal() {
+            playSFX('event'); // 播放世代交替音效
+            const overlay = document.getElementById('modal-overlay');
+            const modal = document.getElementById('heir-modal');
+            const container = document.getElementById('heir-options');
+            
+            addLog(`【訃告】族長 ${currentLeader.name} 辭世。`, 'bad');
+            container.innerHTML = '';
+            
+            const names = ["長子", "次子", "宗族侄子", "庶出兄弟"];
+            const traitKeys = Object.keys(traitsDB);
+
+            // 隨機生成 2-3 個繼承人
+            for(let i=0; i<2; i++) {
+                const tk = traitKeys[Math.floor(Math.random() * traitKeys.length)];
+                const trait = traitsDB[tk];
+                const age = 18 + Math.floor(Math.random() * 10);
+                
+                const btn = document.createElement('button');
+                btn.className = "bg-paper-dark hover:bg-white border-2 border-gray-400 rounded p-4 text-left transition-transform transform hover:-translate-y-1";
+                btn.innerHTML = `
+                    <div class="flex items-center gap-2 mb-2">
+                        <div class="w-10 h-10 rounded-full border border-gray-500 overflow-hidden bg-gray-200">
+                            ${generateAvatarSVG(tk, true)}
+                        </div>
+                        <h3 class="font-bold text-lg text-ink">${names[i]} <span class="text-sm font-normal text-gray-600">(${age}歲)</span></h3>
+                    </div>
+                    <span class="${trait.color} text-white px-2 py-1 rounded text-xs inline-block mb-2"><i class="fas ${trait.icon} mr-1"></i>${trait.name}</span>
+                    <p class="text-xs text-gray-700">${trait.desc}</p>
+                `;
+                btn.onclick = () => {
+                    currentLeader = { name: `新任族長(${names[i]})`, age: age, trait: tk };
+                    addLog(`新任族長繼位，帶來了「${trait.name}」的行事風格。`, 'good');
+                    closeModal();
+                    prepareNextTurn();
+                };
+                container.appendChild(btn);
+            }
+
+            overlay.classList.remove('hidden');
+            modal.classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('modal-overlay').classList.add('hidden');
+            document.getElementById('event-modal').classList.add('hidden');
+            document.getElementById('heir-modal').classList.add('hidden');
+        }
+
+        function checkGameOver() {
+            if (familyStats.pop <= 0) {
+                triggerGameOver("滅門之禍", "家族人口殆盡，血脈斷絕於亂世之中。無人能記錄這段悲慘的歷史。");
+                return true;
+            }
+            if (familyStats.food <= -20) {
+                triggerGameOver("餓殍遍野", "糧食耗盡，族人紛紛餓死。殘存者淪為流民，家族建制徹底瓦解，消失在歷史長河中。");
+                return true;
+            }
+            return false;
+        }
+
+        function triggerGameOver(title, desc) {
+            playSFX('gameover'); // 播放遊戲結束音效
+            gameState.isGameOver = true;
+            const overlay = document.getElementById('modal-overlay');
+            const modal = document.getElementById('gameover-modal');
+            
+            document.getElementById('gameover-title').textContent = title;
+            document.getElementById('gameover-desc').textContent = desc;
+            
+            overlay.classList.remove('hidden');
+            modal.classList.remove('hidden');
+        }
+
+        // --- 啟動遊戲 ---
+        window.onload = () => {
+            updateUI();
+            addLog("太平盛世，家族在洛陽享有聲望。請從下方選擇卡牌開始規劃家族發展。", 'event');
+            showSpeech("請選擇手牌來推進時間。");
+            prepareNextTurn();
+        };
+
+    </script>
+</body>
+</html>
